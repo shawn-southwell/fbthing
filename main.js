@@ -14,7 +14,6 @@ const getGroupIDs = async () => {
 
   return JSON.parse(groupResponse).data;
 };
-const extractMessagesFromGroup = (group) => JSON.parse(group).data.map(postBody => postBody.message);
 const getMorePostsIfExists = async (response, data = []) => {
   if (JSON.parse(response).data.length === 0) {
     return;
@@ -34,31 +33,39 @@ const getMorePostsIfExists = async (response, data = []) => {
 
 const getAllPosts = async () => {
   const groupIDs = await getGroupIDs(groupURL);
-  const promiseOfPosts = groupIDs.slice(0, 1).map(({ id }) => promisifyReq(generateURL(id)));
-  const posts = await Promise.all(promiseOfPosts)
-    .then(postGroups => { // eslint-disable-line
-      postGroups.forEach(group => {
-        const allPosts = getMorePostsIfExists(group);
+  const promiseOfPosts = groupIDs.map(({ id }) => promisifyReq(generateURL(id)));
+  const initialPosts = await Promise.all(promiseOfPosts);
 
-        allPosts.then(thePosts => console.log(thePosts));
-      });
-    });
+  const allPosts = initialPosts.map(async (group) => {
+    const posts = await getMorePostsIfExists(group, JSON.parse(group).data);
 
-  return [].concat(...posts);
+    const flattenedPosts = [].concat(...posts);
+    const messages = flattenedPosts.map(flatPost => flatPost.message);
+
+    return messages;
+  });
+
+  return Promise.all(allPosts);
 };
 
-const hasURL = (post) => post.includes('http');
+// const hasURL = (post) => post.includes('http');
 
 const getSongs = async () => {
   const allPosts = await getAllPosts();
-  const postsContainingURLs = allPosts
-                                .filter(post => post && hasURL(post))
-                                .map(postURL => postURL.match(URLreg));
 
-  return [].concat(...postsContainingURLs);
+  allPosts.forEach(group => {
+    console.log('>>>>>>>>>>>>>>>');
+    console.log(group);
+    console.log('>>>>>>>>>>>>>>>');
+  });
+  // const postsContainingURLs = [].concat(...allPosts)
+  //                               .filter(post => post && hasURL(post))
+  //                               .map(postURL => postURL.match(URLreg));
+  //
+  return [].concat(...allPosts);
 };
 
 
 getSongs();
-// .then((songs) => songs.map((song, i) => console.log(i, song)));
+  // .then((songs) => songs.map((song, i) => console.log(i, song)));
 
