@@ -68,6 +68,7 @@
     "webpack-hot-middleware": "^2.5.0"
   },
   "dependencies": {
+    "ramda": "^0.24.1",
     "request-promise": "^4.2.1"
   }
 }
