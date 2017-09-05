@@ -14,15 +14,35 @@ const getGroupIDs = async () => {
 
   return JSON.parse(groupResponse).data;
 };
+const extractMessagesFromGroup = (group) => JSON.parse(group).data.map(postBody => postBody.message);
+const getMorePostsIfExists = async (response, data = []) => {
+  if (JSON.parse(response).data.length === 0) {
+    return;
+  }
+
+  if (JSON.parse(response).paging.next) {
+    await rp(JSON.parse(response).paging.next)
+      .then(r => {
+        const parsedResponse = JSON.parse(r);
+
+        data.push(parsedResponse.data);
+        return getMorePostsIfExists(r, data);
+      });
+  }
+  return data;
+};
 
 const getAllPosts = async () => {
   const groupIDs = await getGroupIDs(groupURL);
-  const promiseOfPosts = groupIDs.map(({ id }) => promisifyReq(generateURL(id)));
+  const promiseOfPosts = groupIDs.slice(0, 1).map(({ id }) => promisifyReq(generateURL(id)));
   const posts = await Promise.all(promiseOfPosts)
-    .then(postGroup =>
-        postGroup.map(group => (
-          JSON.parse(group).data.map(postBody => postBody.message)
-        )));
+    .then(postGroups => { // eslint-disable-line
+      postGroups.forEach(group => {
+        const allPosts = getMorePostsIfExists(group);
+
+        allPosts.then(thePosts => console.log(thePosts));
+      });
+    });
 
   return [].concat(...posts);
 };
@@ -39,5 +59,6 @@ const getSongs = async () => {
 };
 
 
-getSongs()
-  .then((songs) => songs.map((song, i) => console.log(i, song)));
+getSongs();
+// .then((songs) => songs.map((song, i) => console.log(i, song)));
+
