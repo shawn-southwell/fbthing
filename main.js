@@ -53,11 +53,7 @@ const getAllPosts = async () => {
 const getSongs = async () => {
   const allPosts = await getAllPosts();
 
-  allPosts.forEach(group => {
-    console.log('>>>>>>>>>>>>>>>');
-    console.log(group);
-    console.log('>>>>>>>>>>>>>>>');
-  });
+  console.log(allPosts);
   // const postsContainingURLs = [].concat(...allPosts)
   //                               .filter(post => post && hasURL(post))
   //                               .map(postURL => postURL.match(URLreg));
