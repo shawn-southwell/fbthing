@@ -75,7 +75,7 @@ const getSongs = async () => {
     const hasURL = match(x, URLreg);
 
     if (hasURL.length) {
-      return acc.conat(hasURL);
+      return acc.concat(hasURL);
     }
 
     return acc;
