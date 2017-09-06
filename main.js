@@ -2,10 +2,13 @@ const rp = require('request-promise');
 const { accessToken } = require('./cred.js');
 const {
   compose,
-  composeP, // eslint-disable-line
+  composeP,
   flatten,
   prop,
-  map
+  reduce,
+  match,
+  map,
+  tap // eslint-disable-line
 } = require('ramda');
 
 const groupURL = `https://graph.facebook.com/me/groups?access_token=${accessToken}`;
@@ -13,8 +16,8 @@ const url = `https://graph.facebook.com/GROUPID/feed?limit=100&access_token=${ac
 const URLreg = /(?:(?:https?|ftp|file):\/\/|www\.|ftp\.)(?:\([-A-Z0-9+&@#\/%=~_|$?!:,.]*\)|[-A-Z0-9+&@#\/%=~_|$?!:,.])*(?:\([-A-Z0-9+&@#\/%=~_|$?!:,.]*\)|[A-Z0-9+&@#\/%=~_|$])/igm;  // eslint-disable-line
 
 
-const generateURL = (id) => url.replace('GROUPID', id);
-const promisifyReq = (x) => new Promise(resolve => resolve(rp(x)));
+const generateURL = id => url.replace('GROUPID', id);
+const promisifyReq = x => new Promise(resolve => resolve(rp(x)));
 
 const getGroupIDs = async () => {
   const groupResponse = await rp(groupURL);
@@ -39,34 +42,54 @@ const getMorePostsIfExists = async (response, data = []) => {
 };
 
 const getAllPosts = async () => {
-  const groupIDs = await getGroupIDs(groupURL);
+  const promiseAll = ps => Promise.all(ps);
+  const promisify = compose(promisifyReq, generateURL);
 
-  const promiseOfPosts = groupIDs.map(({ id }) => promisifyReq(generateURL(id)));
+  const initialPostsByGroup = await composeP(
+    promiseAll,
+    map(({ id }) => promisify(id)),
+    getGroupIDs
+  )(groupURL);
 
-  const initialPosts = await Promise.all(promiseOfPosts);
+  const allPosts = compose(
+    promiseAll,
+    map(group => {
+      const formatMessages = compose(
+        map(prop('message')),
+        flatten);
 
-  const allPosts = initialPosts.map(async (group) => {
-    const posts = await getMorePostsIfExists(group, JSON.parse(group).data);
+      return composeP(
+        formatMessages,
+        getMorePostsIfExists
+      )(group, JSON.parse(group).data);
+    }))(initialPostsByGroup);
 
-    const formatMessages = compose(
-      map(prop('message')),
-      flatten);
 
-    return formatMessages(posts);
-  });
-
-  return Promise.all(allPosts);
+  return allPosts;
 };
 
 const getSongs = async () => {
   const allPosts = await getAllPosts();
 
+  const filterURLS = (acc, x) => {
+    const hasURL = match(x, URLreg);
+
+    if (hasURL.length) {
+      return acc.conat(hasURL);
+    }
+
+    return acc;
+  };
+
+  const postsContainingURLs = compose(
+    reduce(filterURLS),
+    tap(console.log),
+    flatten
+  )(allPosts);
+
   console.log(allPosts);
 
-  // const postsContainingURLs = flatten(allPosts)
-  //                               .map(postURL => postURL.match(URLreg));
-  //
-  return flatten(allPosts);
+  return postsContainingURLs;
 };
 
 
